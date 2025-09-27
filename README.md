@@ -1,42 +1,42 @@
 # Bookstore POS System
 
-A lightweight **Point of Sale (POS) system** built on **Google Apps Script** + **Google Sheets** for managing sales, rentals, and inventory at a bookstore.  
-Designed for **Tan Tan Sparadise / Little Leaders Bookstore**, this project focuses on simple, spreadsheet-driven workflows with no external server dependencies.
+A lightweight **Point of Sale (POS) and Inventory system** built on **Google Apps Script** + **Google Sheets**.  
+The system powers **Tan Tan Sparadise / Little Leaders Bookstore**, with separate modules for POS, inventory, member management, and form handling.  
+Each module is its own Apps Script project (pulled locally using `clasp`) but follows a consistent structure.
 
 ---
 
 ## ✨ Features
 - 📦 **Inventory Management**  
   - Track stock in/out with conditions (New, Like New, Good, Fair, Poor)  
-  - Separate sheets for `Sales`, `Inventory List`, and `Items`
+  - Spreadsheet-driven inventory sheets (`LLBS Inventory Management`)  
 
 - 💰 **Sales & Returns**  
-  - Search books by **ISBN** or **Name**  
-  - Strict **stock blocking** (no oversell)  
-  - Support for **negative quantities** (returns → restocks & negative revenue/tax)  
-  - Order-level discounts (allocated proportionally across items)  
-  - Tax calculation after discounts
+  - POS system (`LLBS POS`) with ISBN/Name search  
+  - Strict stock blocking (no oversell)  
+  - Negative quantities for returns (restocks & negative revenue/tax)  
+  - Order-level discounts (proportional allocation)  
+  - Tax calculation after discounts  
 
-- 📖 **Rentals** *(coming soon)*  
-  - Handle rental transactions alongside sales  
+- 📖 **Membership System**  
+  - `LLBS Member Database` for library & bookstore members  
+  - Tracks membership tiers, access, and renewals  
 
-- 📊 **Google Sheets Integration**  
-  - All data (sales, stock, items) managed in one spreadsheet  
-  - No external database required
+- 📝 **Form Controller**  
+  - Handles Google Form submissions  
+  - Connects data pipelines to inventory and membership  
+
+- 📊 **Sheet Templates**  
+  - `LLBS Sheet Template` for creating new modules quickly  
 
 ---
 
 ## 📂 Project Structure
-- `index.html` → POS user interface  
-- `app.js` → Client-side app logic  
-- `Code.gs` → Google Apps Script backend (business rules, spreadsheet integration)  
-- `Sales` sheet → Line-level transactions  
-- `Inventory List` sheet → Stock management  
-- `Items` sheet → Book catalog (ISBN, Name, Type, Price)
 
----
+This repository contains multiple **Apps Script projects**, one per Google Sheet.  
+Each project always includes:  
+- `appsscript.json` → project manifest  
+- `Initial setup.gs` → one-time initialization logic  
 
-## 🚀 Getting Started
-1. Clone this repo:
-   ```bash
-   git clone https://github.com/Bugcatto/bookstore-pos-system.git
+Other files vary by module (`Code.gs`, `index.html`, `Form.gs`, etc.).
+
