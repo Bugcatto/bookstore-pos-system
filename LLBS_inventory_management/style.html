@@ -1,0 +1,274 @@
+<!-- style.html -->
+<style>
+:root{
+  /* Theme: red, dark blue, white */
+  --bg:#0b1020;         /* dark blue background */
+  --fg:#f1f4f9;         /* near-white text */
+  --muted:#aab3c2;      /* soft gray-blue */
+  --card:#121833;       /* deeper blue for cards/panels */
+  --accent:#22c55e;     /* primary green accent (buttons) */
+  --accent-2:#203a8f;   /* secondary deep blue accent */
+  --danger:#ff6b6b;     /* error/danger red */
+  --border:rgba(255,255,255,.10);
+  --border-2:rgba(255,255,255,.16);
+}
+
+*{ box-sizing:border-box }
+
+html, body{
+  margin:0;
+  background:var(--bg);
+  color:var(--fg);
+  font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";
+}
+
+/* Top bar */
+.topbar{
+  background:linear-gradient(0deg, rgba(255,255,255,0.06), rgba(255,255,255,0.06));
+  padding:8px 12px;
+  border-bottom:1px solid var(--border);
+}
+.topbar h1{
+  margin:0;
+  font-size:16px;
+  color:#ffd6d6;                 /* red-tinted title */
+  letter-spacing:.2px;
+}
+
+/* Layout */
+.wrap{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:12px;
+  padding:12px;
+}
+.catalog, .order{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:12px;
+}
+
+/* Controls */
+.search-row{ display:flex; gap:8px; margin-bottom:10px; }
+
+.input, .select{
+  background:#0a0f21;
+  color:var(--fg);
+  border:1px solid #1d274a;
+  border-radius:8px;
+  padding:8px 10px;
+  outline:none;
+}
+.input:focus, .select:focus{
+  border-color:#2e4595;          /* blue focus */
+  box-shadow:0 0 0 2px rgba(46,69,149,.25);
+}
+.input.small{ width:120px; }
+.input.tiny{ width:60px; text-align:center; }
+
+.btn{
+  background:#1a2447;            /* blue-ish neutral */
+  color:var(--fg);
+  border:1px solid #2a3a72;
+  border-radius:8px;
+  padding:8px 10px;
+  cursor:pointer;
+  transition:filter .15s ease, transform .02s ease;
+}
+.btn:hover{ filter:brightness(1.08); }
+.btn:active{ transform:translateY(1px); }
+
+.btn.primary{
+  background:var(--accent);       /* red primary */
+  color:#220000;
+  border-color:#ff8585;
+  font-weight:600;
+}
+.btn.danger{
+  background:var(--danger);
+  color:#2a0000;
+  border-color:#ff9b9b;
+}
+.btn.tiny{ padding:2px 8px; }
+
+/* Disabled/busy state */
+.btn:disabled,
+.btn.disabled{
+  opacity:.6;
+  pointer-events:none;
+  filter:none;
+}
+
+/* Lists / results */
+.results{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  max-height:60vh;
+  overflow:auto;
+  scrollbar-width:thin;
+}
+.result-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:8px 10px;
+  background:rgba(255,255,255,.01);
+}
+.result-main .title{ font-weight:600; }
+.result-ctls{ display:flex; align-items:center; gap:6px; }
+
+/* Order area */
+.order .totals{
+  margin-top:10px;
+  border-top:1px solid var(--border);
+  padding-top:10px;
+}
+.row{ display:flex; align-items:center; gap:8px; margin:6px 0; }
+.row.end{ justify-content:flex-end; }
+.gap{ gap:12px; }
+
+.muted{ color:var(--muted); font-size:12px; }
+.warn{ color:#ffe45e; font-size:12px; }
+.error{ color:#ff8a8a; font-size:12px; }
+.strong{ font-weight:700; }
+
+/* Cart lines */
+.cart{ display:flex; flex-direction:column; gap:8px; }
+.line{
+  display:grid;
+  grid-template-columns: 1fr auto auto auto 1fr auto;
+  gap:8px;
+  align-items:center;
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:8px 10px;
+  background:rgba(255,255,255,.01);
+}
+.price{ text-align:right; min-width:84px; }
+.grow{ min-width:0; }
+.title{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.notes input{ width:100%; }
+
+/* Customer card + tabs */
+.customer-card{
+  border:1px dashed var(--border-2);
+  border-radius:10px;
+  padding:8px;
+  margin-bottom:10px;
+  background:rgba(255,255,255,.02);
+}
+
+.tabs{ display:flex; gap:6px; margin-bottom:6px; }
+.tab{
+  background:#121b3a;
+  border:1px solid #23346b;
+  padding:6px 10px;
+  border-radius:8px;
+  cursor:pointer;
+  color:#dbe3ff;
+}
+.tab:hover{ filter:brightness(1.08); }
+.tab.active{
+  background:#1b2a5c;            /* dark blue active */
+  border-color:#2a4391;
+  color:#ffd6d6;                  /* hint of red on active */
+}
+
+.pane.hidden{ display:none; }
+.member-results{
+  display:flex; flex-direction:column; gap:6px;
+  max-height:180px; overflow:auto; scrollbar-width:thin;
+}
+.pick{
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:8px;
+  background:rgba(255,255,255,.01);
+}
+.buyer-badge{ margin-top:6px; font-size:12px; color:#ffc9c9; }
+
+/* Preview block */
+#calcPreview{
+  border-top:1px solid var(--border);
+  margin-top:6px; padding-top:6px;
+}
+
+/* Modal */
+.modal{
+  position:fixed; inset:0;
+  background:rgba(0,0,0,.5);
+  display:flex; align-items:center; justify-content:center;
+  z-index:10000; /* higher than overlay just in case */
+}
+.modal.hidden{ display:none; }
+.modal-body{
+  background:#0f1b20;
+  border:1px solid #2b4a53;
+  border-radius:12px;
+  padding:16px;
+  width:min(420px, 90vw);
+  box-shadow:0 10px 30px rgba(0,0,0,.45);
+}
+
+/* Offscreen print iframe */
+.offscreen{
+  position:absolute; left:-10000px; top:-10000px;
+  width:0; height:0; border:0;
+}
+
+/* Busy overlay */
+.busy-overlay{
+  position:fixed; inset:0;
+  background:rgba(0,0,0,.35);
+  display:flex; align-items:center; justify-content:center;
+  z-index:9999;
+}
+.busy-overlay.hidden{ display:none; }
+.busy-card{
+  background:#0f1b20;
+  border:1px solid #2b4a53;
+  border-radius:12px;
+  padding:16px 20px;
+  display:flex; gap:10px; align-items:center;
+}
+.spinner{
+  width:18px; height:18px;
+  border:3px solid rgba(255,255,255,.25);
+  border-top-color:#ffb1b1;       /* red-tinted spinner */
+  border-radius:50%;
+  animation:spin 1s linear infinite;
+}
+@keyframes spin{ to { transform: rotate(360deg); } }
+
+/* Responsive */
+@media (max-width: 920px){
+  .wrap{ grid-template-columns: 1fr; }
+  .line{ grid-template-columns: 1fr auto auto auto 1fr auto; }
+}
+@media (max-width: 600px){
+  .line{ grid-template-columns: 1fr auto auto; grid-auto-rows: auto; }
+  .price{ min-width:72px; }
+  .notes input{ min-width:100%; }
+}
+
+/* Scoped stacking so the select only goes above while focused */
+.line { position: relative; }
+.line > .cell { position: relative; overflow: visible; z-index: 0; }
+
+/* Default: no special z-index on selects */
+select, .select { position: relative; z-index: auto; max-width: 100%; }
+
+/* When the select (or anything inside its cell) is focused, float above neighbors */
+.select-cell:focus-within { z-index: 1000; }
+
+/* Keep the dropdown list on-theme */
+select option { background: var(--card); color: var(--fg); }
+
+/* Don’t clip menus */
+.line, .cart, .results { overflow: visible !important; }
+</style>

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Inventory Stock In</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <?!= HtmlService.createHtmlOutputFromFile('style').getContent(); ?>
+</head>
+<body>
+  <!-- Top Bar -->
+  <div class="topbar">
+    <h1>Inventory Stock In</h1>
+  </div>
+
+  <!-- Layout -->
+  <div class="wrap">
+    <div class="order">
+      <!-- Search + Stats -->
+      <div class="search-row">
+        <input id="search" class="input" type="text"
+               placeholder="Search by title / ISBN / type…" />
+        <button id="addRowBtn" class="btn">+ Add Row</button>
+        <button id="resetBtn"  class="btn">Reset</button>
+        <button id="submitBtn" class="btn primary">Submit</button>
+      </div>
+      <div class="muted" id="stats">Rows: 0 · Unique lines: 0 · Total qty: 0 · Est. cost: 0.00</div>
+
+      <!-- Lines -->
+      <div id="rows" class="cart" style="margin-top:10px;"></div>
+
+      <!-- Messages -->
+      <div id="msg" class="muted" style="margin-top:10px;"></div>
+    </div>
+  </div>
+
+  <script>
+    let BOOKS = [];     // [{title, isbn, type}]
+    let FILTERED = [];  // filtered list
+
+    // Helpers
+    function el(tag, attrs={}, ...children) {
+      const n = document.createElement(tag);
+      Object.entries(attrs).forEach(([k,v]) => {
+        if (k === "class") n.className = v;
+        else if (k === "html") n.innerHTML = v;
+        else n.setAttribute(k, v);
+      });
+      children.forEach(c => n.appendChild(c));
+      return n;
+    }
+
+    function optionLabel(b) {
+      const t = b.title || "(Untitled)";
+      const i = b.isbn ? ` — ${b.isbn}` : "";
+      const y = b.type ? ` — ${b.type}` : "";
+      return t + i + y;
+    }
+
+    function makeSelect() {
+      const s = el("select", { class: "select grow" });
+      s.appendChild(new Option("Select a book…", "", true, true));
+      FILTERED.forEach(b => s.appendChild(
+        new Option(optionLabel(b), [b.isbn, b.title, b.type || ""].join("|||"))
+      ));
+      return s;
+    }
+
+    // Build one line row (book | qty | price | remove)
+    function addRow(prefill) {
+      const rows = document.getElementById("rows");
+
+      const select = makeSelect();
+      if (prefill && prefill.isbn && prefill.title) {
+        const val = [prefill.isbn, prefill.title, prefill.type || ""].join("|||");
+        const found = Array.from(select.options).find(o => o.value === val);
+        if (found) select.value = val;
+      }
+
+      const qty   = el("input", { class:"input input small", type:"number", min:"1", step:"1", placeholder:"Qty" });
+      const price = el("input", { class:"input input small", type:"number", min:"0", step:"0.01", placeholder:"Price" });
+
+      if (prefill && prefill.quantity) qty.value = prefill.quantity;
+      if (prefill && prefill.purchasePrice !== undefined) price.value = prefill.purchasePrice;
+
+      // Enter to move quickly
+      qty.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); price.focus(); }});
+      price.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addRow(); }});
+
+      const rmBtn = el("button", { class:"btn danger tiny", type:"button" }, document.createTextNode("Remove"));
+      rmBtn.addEventListener("click", () => { rows.removeChild(row); updateStats(); });
+
+      const row = el("div", { class:"line" },
+        el("div", { class:"cell select-cell grow" }, select), // select column
+        el("div", { class:"cell" }, qty),                    // qty column
+        el("div", { class:"cell" }, price),                  // price column
+        el("div", { class:"cell" }, rmBtn)                   // remove column
+      );
+
+
+      rows.appendChild(row);
+      updateStats();
+      return row;
+    }
+
+    function gatherEntries() {
+      const rows = document.querySelectorAll("#rows .line");
+      const out = [];
+      rows.forEach(r => {
+        const select = r.querySelector("select");
+        const inputs = r.querySelectorAll('input[type="number"]');
+        if (!select || inputs.length < 2) return;
+
+        const selVal   = select.value;
+        const qtyVal   = inputs[0].value;
+        const priceVal = inputs[1].value;
+
+        if (!selVal || !qtyVal) return;
+        const [isbn, title, type] = selVal.split("|||");
+        out.push({
+          isbn, title, type,
+          quantity: qtyVal,
+          purchasePrice: priceVal === "" ? 0 : priceVal
+        });
+      });
+      return out;
+    }
+
+    // Merge only when isbn + title + type + price are identical
+    function mergeDuplicates(entries) {
+      const map = new Map();
+      for (const e of entries) {
+        const k = [e.isbn || "", e.title || "", e.type || "", String(Number(e.purchasePrice)||0)].join("|||");
+        map.set(k, (map.get(k) || 0) + Number(e.quantity || 0));
+      }
+      return Array.from(map.entries()).map(([k, q]) => {
+        const [isbn, title, type, priceStr] = k.split("|||");
+        return { isbn, title, type, purchasePrice: Number(priceStr), quantity: q };
+      });
+    }
+
+    function updateStats() {
+      const e = gatherEntries();
+      const totalQty  = e.reduce((s, v) => s + (Number(v.quantity) || 0), 0);
+      const totalCost = e.reduce((s, v) => s + (Number(v.quantity) || 0) * (Number(v.purchasePrice) || 0), 0);
+      const unique    = mergeDuplicates(e).length;
+      document.getElementById("stats").textContent =
+        `Rows: ${e.length} · Unique lines: ${unique} · Total qty: ${totalQty} · Est. cost: ${totalCost.toFixed(2)}`;
+    }
+
+    function resetForm() {
+      document.getElementById("rows").innerHTML = "";
+      addRow();
+      show("", "");
+      updateStats();
+    }
+
+    function show(msg, cls) {
+      const box = document.getElementById("msg");
+      box.className = cls || "muted";
+      box.textContent = msg || "";
+    }
+
+    // Events: top controls
+    document.getElementById("addRowBtn").addEventListener("click", () => addRow());
+    document.getElementById("resetBtn").addEventListener("click", resetForm);
+    document.getElementById("submitBtn").addEventListener("click", () => {
+      let entries = gatherEntries();
+      if (!entries.length) { show("Please add at least one valid row.", "warn"); return; }
+      if (entries.some(e => !(Number(e.quantity) > 0))) {
+        show("Quantity must be a positive number.", "error"); return;
+      }
+      if (entries.some(e => !(Number(e.purchasePrice) >= 0))) {
+        show("Purchase Price must be zero or a positive number.", "error"); return;
+      }
+      entries = mergeDuplicates(entries);
+
+      show("Submitting…", "muted");
+      google.script.run.withSuccessHandler(res => {
+        if (res && res.ok) {
+          show(`Success: inserted ${res.inserted} row(s).`, "strong");
+          resetForm();
+        } else {
+          show("Unknown response from server.", "error");
+        }
+      }).withFailureHandler(err => {
+        show(err && err.message ? err.message : "Failed to save.", "error");
+      }).saveStockIn(entries);
+    });
+
+    // Live filtering
+    document.getElementById("search").addEventListener("input", () => {
+      const q = (document.getElementById("search").value || "").trim().toLowerCase();
+      FILTERED = !q
+        ? BOOKS.slice()
+        : BOOKS.filter(b =>
+            (b.title && b.title.toLowerCase().includes(q)) ||
+            (b.isbn  && b.isbn.toLowerCase().includes(q))   ||
+            (b.type  && b.type.toLowerCase().includes(q))
+          );
+      // rebuild all selects
+      document.querySelectorAll("#rows .line").forEach(line => {
+        const old = line.querySelector("select");
+        const val = old.value;
+        const fresh = makeSelect();
+        line.querySelector(".grow").replaceChild(fresh, old);
+        if (Array.from(fresh.options).some(o => o.value === val)) fresh.value = val;
+      });
+    });
+
+    // Recompute stats on any input change
+    document.getElementById("rows").addEventListener("input", (e) => {
+      if (e.target.matches("select") || e.target.matches('input[type="number"]')) updateStats();
+    });
+
+    // INIT
+    (function init() {
+      show("Loading books…", "muted");
+      google.script.run.withSuccessHandler(list => {
+        BOOKS = Array.isArray(list) ? list : [];
+        FILTERED = BOOKS.slice();
+        resetForm();
+        show(`Loaded ${BOOKS.length} books.`, "muted");
+      }).withFailureHandler(err => {
+        show(err && err.message ? err.message : "Failed to load books.", "error");
+      }).getBooks();
+    })();
+  </script>
+</body>
+</html>
