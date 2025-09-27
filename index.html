@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_blank" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>App Launcher</title>
+    <style>
+      /* === POS THEME TOKENS (same as your POS) === */
+      :root{
+        --bg:#0b1220;
+        --panel:#111827;
+        --border:#1f2937;
+        --muted:#94a3b8;
+        --text:#f9fafb;
+        --accent:#22c55e;
+        --accent-text:#062b13;
+      }
+
+      *{box-sizing:border-box;margin:0;padding:0}
+      html,body{height:100%}
+      body{
+        font-family: Inter, system-ui, Arial, sans-serif;
+        background:var(--bg);
+        color:var(--text);
+      }
+
+      /* Layout */
+      .wrap{max-width:960px;margin:24px auto;padding:0 16px}
+      .card{
+        background:var(--panel);
+        border:1px solid var(--border);
+        border-radius:14px;
+        padding:16px;
+      }
+      h1{font-size:20px;margin-bottom:10px;font-weight:700}
+
+      /* Top bar (matches POS spacing + inputs) */
+      .topbar{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+      .search{
+        flex:1 1 280px;
+        height:40px;
+        padding:0 12px;
+        background:#0f172a;
+        color:var(--text);
+        border:1px solid var(--border);
+        border-radius:10px;
+        outline:none;
+      }
+      .search::placeholder{color:var(--muted)}
+      .count{font-size:13px;color:var(--muted)}
+
+      /* Grid of buttons (card-like, same radius + subtle shadow like POS) */
+      .grid{
+        display:grid;gap:12px;
+        grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+        align-items:stretch;
+      }
+
+      /* POS button style */
+      .pos-btn{
+        display:flex;align-items:center;justify-content:center;
+        min-height:56px;padding:14px 16px;
+        border-radius:12px;
+        text-decoration:none;font-weight:600;
+        background:linear-gradient(180deg,var(--accent),#16a34a);
+        color:var(--accent-text);
+        border:1px solid #14532d;
+        box-shadow:0 6px 14px rgba(34,197,94,.22);
+        transition:transform .08s ease, box-shadow .08s ease, filter .08s ease, opacity .08s ease;
+        text-align:center;
+      }
+      .pos-btn:hover{transform:translateY(-1px);filter:brightness(1.03);box-shadow:0 10px 22px rgba(34,197,94,.28)}
+      .pos-btn:active{transform:translateY(0);filter:brightness(.98);box-shadow:0 4px 10px rgba(34,197,94,.2)}
+      .pos-btn.secondary{
+        background:#0f172a;color:var(--text);
+        border:1px solid var(--border);
+        box-shadow:none;
+      }
+
+      .muted{color:var(--muted);font-size:14px}
+      .empty{
+        padding:20px;border:1px dashed var(--border);border-radius:12px;
+        text-align:center;color:var(--muted)
+      }
+
+      /* Small “badge” look for external links if you ever add icons later */
+      .right-badge{
+        margin-left:8px;padding:.5px 6px;border-radius:999px;
+        background:rgba(255,255,255,.12);font-size:12px;font-weight:600;color:var(--text);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card">
+        <h1>App Launcher</h1>
+        <div class="topbar">
+          <input id="q" class="search" type="search" placeholder="Search apps by name…" oninput="render()" />
+          <div class="count" id="count"></div>
+        </div>
+
+        <div id="list" class="grid"></div>
+        <div id="empty" class="empty" style="display:none;">No apps found.</div>
+
+        <div class="muted" style="margin-top:10px">
+          Source: “App List” (A: Name, B: Link)
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const state = { apps: [], filtered: [] };
+
+      function fetchApps(){
+        google.script.run
+          .withSuccessHandler(apps => { state.apps = apps || []; render(); })
+          .withFailureHandler(err => {
+            document.getElementById('list').innerHTML =
+              `<div class="empty">Error loading apps: ${escapeHtml(String(err))}</div>`;
+          })
+          .getApps();
+      }
+
+      function render(){
+        const q = (document.getElementById('q').value || '').toLowerCase().trim();
+        state.filtered = q
+          ? state.apps.filter(a => a.name.toLowerCase().includes(q))
+          : state.apps.slice();
+
+        const list = document.getElementById('list');
+        const empty = document.getElementById('empty');
+        const count = document.getElementById('count');
+        count.textContent = state.filtered.length ? `${state.filtered.length} app(s)` : '';
+
+        if (!state.filtered.length){
+          list.innerHTML = '';
+          empty.style.display = 'block';
+          return;
+        }
+        empty.style.display = 'none';
+
+        list.innerHTML = state.filtered.map(a => `
+          <a class="pos-btn" href="${escapeAttr(a.url)}" rel="noopener noreferrer">
+            ${escapeHtml(a.name)}
+          </a>
+        `).join('');
+      }
+
+      // helpers
+      function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+      function escapeAttr(s){ return String(s).replace(/"/g,'&quot;'); }
+
+      fetchApps();
+    </script>
+  </body>
+</html>
