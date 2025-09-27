@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Library Member Registration</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    --bg: #121212;
+    --panel: #1e1e1e;
+    --border: rgba(255,255,255,.08);
+    --muted: #9aa0a6;
+    --text: #e8e8e8;
+    --accent: #5ad1e6;
+    --accent-text: #03141a;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: system-ui, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  .wrap {
+    max-width: 960px;
+    margin: 24px auto;
+    padding: 0 16px;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+  }
+
+  h1 {
+    font-size: 20px;
+    margin-bottom: 10px;
+    color: #a7e1ee;
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 12px;
+  }
+
+  label {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    display: block;
+  }
+
+  .input,
+  .select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    background: #111;
+    color: var(--text);
+  }
+
+  .btn {
+    background: var(--accent);
+    border: 1px solid #6ad8ea;
+    color: var(--accent-text);
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: filter .15s ease;
+  }
+  .btn:hover { filter: brightness(1.1); }
+
+  .btn.secondary {
+    background: #1a1a1a;
+    color: var(--text);
+    border: 1px solid #333;
+  }
+
+  .muted {
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 12px;
+  }
+
+  .col-6 { grid-column: span 6; }
+  .col-4 { grid-column: span 4; }
+  .col-8 { grid-column: span 8; }
+  .col-12 { grid-column: span 12; }
+
+  @media (max-width: 740px) {
+    .col-6,
+    .col-4,
+    .col-8 { grid-column: span 12; }
+
+    .wrap { padding: 0 8px; }
+    .card { padding: 8px; }
+    
+    h1 { font-size: 18px; }
+    .row { gap: 8px; }
+    label { font-size: 11px; }
+    .input, .select { padding: 8px; }
+  }
+</style>
+
+</head>
+<body>
+  <!-- Loading message -->
+  <div id="loadingMessage" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; background-color: rgba(0, 0, 0, 0.7); color: white; font-size: 20px; padding: 20px;">
+    Loading... Please wait.
+  </div>
+
+  <div class="wrap">
+    <div class="card">
+      <h2>Little Leaders Bookstore Membership Application - for Library Membership</h2>
+      <br><h1>Before they read words, children are reading pictures</h1></br>
+
+      <form id="memberForm" onsubmit="return submitMember(event)">
+        <!-- Email / Name -->
+        <div class="row">
+          <div class="col-6">
+            <label>Email *</label>
+            <input class="input" name="email" type="email" required placeholder="name@example.com" />
+          </div>
+          <div class="col-6">
+            <label>Name *</label>
+            <input class="input" name="name" required placeholder="အမည် / Name" />
+          </div>
+        </div>
+
+        <!-- Phones -->
+        <div class="row" style="margin-top:8px;">
+          <div class="col-4">
+            <label>Primary Phone *</label>
+            <input class="input" name="phone_primary" required placeholder="+95…" />
+          </div>
+          <div class="col-4">
+            <label>Secondary Phone</label>
+            <input class="input" name="phone_secondary" placeholder="+95…" />
+          </div>
+          <div class="col-4">
+            <label>Viber no.</label>
+            <input class="input" name="viber" placeholder="+95…" />
+          </div>
+        </div>
+
+        <!-- DOB -->
+        <div class="row" style="margin-top:8px;">
+          <div class="col-4">
+            <label for="dob">Date of Birth:</label>
+            <input type="date" id="dob" name="dob" required>
+          </div>
+        </div>
+
+        <!-- NRC (dependent on nrc.json) -->
+        <div class="row" style="margin-top:8px;">
+          <div class="col-4">
+            <label>NRC Code *</label>
+            <select class="select" name="nrc_code" id="nrc_code" onchange="updateNrcTownships(this.value)" required></select>
+          </div>
+          <div class="col-4">
+            <label>NRC Township *</label>
+            <select class="select" name="nrc_township" id="nrc_township" required></select>
+          </div>
+          <div class="col-4">
+            <label>NRC Number *</label>
+            <input class="input" name="nrc_number" required placeholder="e.g., 123456" />
+          </div>
+        </div>
+
+        <!-- Address (DEPENDENT: Region -> Township from region.json) -->
+        <div class="row" style="margin-top:8px;">
+          <div class="col-6">
+            <label>Region *</label>
+            <select class="select" name="addr_region" id="addr_region" onchange="updateTownships(this.value)" required></select>
+          </div>
+          <div class="col-6">
+            <label>Township *</label>
+            <select class="select" name="addr_township" id="addr_township" required></select>
+          </div>
+        </div>
+
+        <!-- Address (detail) -->
+        <div class="row" style="margin-top:8px;">
+          <div class="col-6">
+            <label>House/Building/Room No</label>
+            <input class="input" name="addr_house" />
+          </div>
+          <div class="col-6">
+            <label>Street</label>
+            <input class="input" name="addr_street" />
+          </div>
+        </div>
+
+        <!-- Optional -->
+        <div class="row" style="margin-top:8px;">
+          <div class="col-6">
+            <label>Preferred Plan *</label>
+             <select class="select" name="plan" hidden>
+              <option selected>Library Member</option>
+             </select>
+
+          </select>
+
+          </div>
+          <div class="col-6">
+            <label>Preferred Channel</label>
+            <select class="select" name="channel">
+              <option value="">Choose…</option>
+              <option>Email</option>
+              <option>SMS</option>
+              <option>Viber</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Consent -->
+        <div class="row" style="margin-top:12px;">
+          <div class="col-12">
+            <label style="display:flex;gap:8px;align-items:center;">
+              <input type="checkbox" id="agree" />
+              <span class="muted">I agree to the Terms & Conditions.</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="btn secondary" type="button" onclick="resetForm()">Clear</button>
+          <button class="btn" id="submitBtn" type="submit" disabled>Submit</button>
+        </div>
+      </form>
+
+      <div id="memberStatus" class="muted" style="margin-top:10px;"></div>
+    </div>
+  </div>
+
+    <script>
+      // Enable/disable submit button based on T&C checkbox
+      function toggleSubmit(){
+        document.getElementById('submitBtn').disabled = !document.getElementById('agree').checked;
+      }
+
+      document.getElementById('agree').addEventListener('change', toggleSubmit);
+
+      // Serialize form data into an object
+      function serializeForm(form){
+        const fd = new FormData(form);
+        const obj = {};
+        fd.forEach((v,k)=>obj[k]=String(v||'').trim());
+        obj.agreed = document.getElementById('agree').checked ? 'true' : 'false';
+        return obj;
+      }
+
+      // Handle form submission
+      function submitMember(e) {
+        e.preventDefault();
+
+        const preferredPlan = document.querySelector('select[name="plan"]').value;
+        if (!preferredPlan) {
+          alert("Please select a Preferred Plan.");
+          return;
+        }
+
+        const loadingMessage = document.getElementById('loadingMessage');
+        loadingMessage.style.display = 'block';
+
+        const data = serializeForm(e.target);
+        const status = document.getElementById('memberStatus');
+        status.textContent = 'Submitting…';
+        document.getElementById('submitBtn').disabled = true;
+
+        google.script.run
+          .withSuccessHandler(function(res) {
+            loadingMessage.style.display = 'none';
+            if (res.ok) {
+              status.textContent = 'Submitted ✔ Member ID: ' + res.memberId;
+              resetForm();
+            } else {
+              status.textContent = res.message || 'Failed.';
+            }
+            toggleSubmit();
+          })
+          .withFailureHandler(function(err) {
+            status.textContent = (err && err.message) ? err.message : 'Submission failed';
+            toggleSubmit();
+          })
+          .api_submitMember(data);
+
+        return false;
+      }
+
+      // Reset form and dependent dropdowns
+      function resetForm(){
+        document.getElementById('memberForm').reset();
+        document.getElementById('addr_township').innerHTML = '<option value="">Choose region first</option>';
+        document.getElementById('nrc_township').innerHTML = '<option value="">Choose NRC code first</option>';
+        toggleSubmit();
+      }
+
+      // Load Regions
+      function loadRegions() {
+        const sel = document.getElementById('addr_region');
+        sel.innerHTML = '<option value="">Loading…</option>';
+        google.script.run
+          .withSuccessHandler(list => {
+            sel.innerHTML = '<option value="">Choose…</option>' +
+              list.map(r => `<option value="${r}">${r}</option>`).join('');
+            document.getElementById('addr_township').innerHTML = '<option value="">Choose region first</option>';
+          })
+          .withFailureHandler(_ => {
+            sel.innerHTML = '<option value="">Failed to load</option>';
+          })
+          .api_getRegions();
+      }
+
+      // Load NRC Codes
+      function loadNrcCodes() {
+        const sel = document.getElementById('nrc_code');
+        sel.innerHTML = '<option value="">Loading…</option>';
+        google.script.run
+          .withSuccessHandler(list => {
+            sel.innerHTML = '<option value="">Choose…</option>' +
+              list.map(c => `<option value="${c}">${c}</option>`).join('');
+            document.getElementById('nrc_township').innerHTML = '<option value="">Choose NRC code first</option>';
+          })
+          .withFailureHandler(err => {
+            const msg = (err && err.message) ? err.message : 'Failed to load NRC codes';
+            sel.innerHTML = `<option value="">${msg}</option>`;
+          })
+          .api_getNrcCodes();
+      }
+
+      // Update dependent dropdowns when region changes
+      document.addEventListener('change', function(e){
+        if(e.target && e.target.id === 'addr_region'){
+          const region = e.target.value;
+          const tSel = document.getElementById('addr_township');
+          if(!region){ tSel.innerHTML = '<option value="">Choose region first</option>'; return; }
+          tSel.innerHTML = '<option value="">Loading…</option>';
+          google.script.run
+            .withSuccessHandler(items=>{ 
+              tSel.innerHTML = '<option value="">Choose…</option>' +
+                items.map(it=>`<option value="${it}">${it}</option>`).join('');
+            })
+            .withFailureHandler(_=>{ 
+              tSel.innerHTML = '<option value="">Failed to load</option>';
+            })
+            .api_getRegionTownships(region);
+        }
+      });
+
+      // Update dependent dropdowns when NRC code changes
+      document.addEventListener('change', function(e){
+        if(e.target && e.target.id === 'nrc_code'){
+          const code = e.target.value;
+          const tSel = document.getElementById('nrc_township');
+          if(!code){ tSel.innerHTML = '<option value="">Choose NRC code first</option>'; return; }
+          tSel.innerHTML = '<option value="">Loading…</option>';
+          google.script.run
+            .withSuccessHandler(items=>{ 
+              tSel.innerHTML = '<option value="">Choose…</option>' +
+                items.map(it=>`<option value="${it.value}">${it.label}</option>`).join('');
+            })
+            .withFailureHandler(err=>{ 
+              const msg = (err && err.message) ? err.message : 'Failed to load NRC townships';
+              tSel.innerHTML = `<option value="">${msg}</option>`;
+            })
+            .api_getNrcTownships(code);
+        }
+      });
+
+      // Update NRC townships (used by some functions)
+      function updateNrcTownships(nrcCode) {
+        google.script.run.withSuccessHandler(function(townships) {
+          if (!Array.isArray(townships) || townships.length === 0) return;
+          const dropdown = document.getElementById("nrc_township");
+          dropdown.innerHTML = '<option value="">Choose a Township</option>';
+          const fragment = document.createDocumentFragment();
+          townships.forEach(function(township) {
+            const option = document.createElement("option");
+            option.value = township.value;
+            option.text = township.label;
+            fragment.appendChild(option);
+          });
+          dropdown.appendChild(fragment);
+        }).getNrcRegionTownships(nrcCode);
+      }
+
+      // Single DOMContentLoaded listener for initialization
+      document.addEventListener('DOMContentLoaded', function () {
+        const loadingMessage = document.getElementById('loadingMessage');
+        loadingMessage.style.display = 'block';
+
+        // Prefill plan from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const planParam = urlParams.get('plan'); // "Bookstore Member" or "Library Member"
+        
+        if (planParam) {
+          const planSelect = document.getElementById('planSelect');
+          planSelect.value = planParam;           // pre-select
+          planSelect.setAttribute('readonly', true); // make readonly
+          planSelect.style.pointerEvents = 'none';   // prevent clicks
+          planSelect.style.backgroundColor = '#f3f4f6'; // optional: gray-out
+        }
+
+        // Load dropdowns
+        loadRegions();
+        loadNrcCodes();
+        toggleSubmit();
+
+        // Hide loading after short delay
+        setTimeout(() => {
+          loadingMessage.style.display = 'none';
+        }, 1000);
+      });
+    </script>
+  </body>
+</html>

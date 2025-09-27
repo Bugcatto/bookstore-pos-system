@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Member Status</title>
+<style>
+:root{
+  /* Theme: red, dark blue, white */
+  --bg:#0b1020; --fg:#f1f4f9; --muted:#aab3c2; --card:#121833;
+  --accent:#ff3b3b; --accent-2:#203a8f;
+  --border:rgba(255,255,255,.12); --border-2:rgba(255,255,255,.20);
+  --success:#29c76f; --warn:#ffb02e; --danger:#ff5b5b;
+}
+*{ box-sizing:border-box }
+html,body{ margin:0; background:var(--bg); color:var(--fg); font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji") }
+
+.topbar{ background:rgba(255,255,255,.06); border-bottom:1px solid var(--border); padding:10px 14px }
+.topbar h1{ margin:0; font-size:16px; color:#a7e1ee; letter-spacing:.3px }
+
+.wrap{ padding:14px; max-width:1200px; margin:0 auto; display:grid; gap:12px }
+.panel{ background:var(--card); border:1px solid var(--border); border-radius:14px; padding:12px }
+
+.controls{ display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center }
+@media (max-width:800px){ .controls{ grid-template-columns:1fr } }
+
+.searchbar{ display:flex; gap:8px; align-items:center; background:#0e1530; border:1px solid var(--border-2); border-radius:12px; padding:8px 10px }
+.searchbar input{ flex:1; background:transparent; border:0; color:var(--fg); outline:none; font-size:14px }
+.searchbar .clear-btn{ background:transparent; border:0; color:var(--muted); cursor:pointer }
+
+.filters{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end }
+.chip{ border:1px solid var(--border-2); border-radius:999px; padding:6px 10px; font-size:13px; color:var(--fg); background:#0e1530; cursor:pointer; user-select:none }
+.chip.active{ border-color:var(--accent); box-shadow:0 0 0 2px rgba(255,59,59,0.2) inset }
+
+.controls-row{ display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap }
+.count{ color:var(--muted); font-size:13px }
+.btn{ background:var(--accent); color:white; border:0; border-radius:10px; padding:8px 12px; font-size:13px; cursor:pointer }
+.btn.outline{ background:transparent; border:1px solid var(--accent); color:#ffd1d1 }
+
+/* Tabs */
+.tabs{
+  display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; border-bottom:1px solid var(--border);
+  padding-bottom:6px;
+}
+.tab{
+  background:#0e1530; border:1px solid var(--border-2);
+  color:var(--fg); font-size:13px; border-radius:10px; padding:8px 12px; cursor:pointer;
+}
+.tab.active{
+  border-color:var(--accent);
+  box-shadow:0 0 0 2px rgba(255,59,59,.2) inset;
+}
+
+/* Table */
+.table{ width:100%; border-collapse:collapse; margin-top:10px }
+.table th,.table td{ text-align:left; font-size:14px; padding:10px 8px; border-bottom:1px solid var(--border) }
+.table th{ color:#bfc7d8; font-weight:600 }
+.table td{ color:var(--fg) }
+
+.badge{ display:inline-block; padding:4px 8px; border-radius:999px; font-size:12px; font-weight:600; border:1px solid transparent }
+.badge.active{ background:rgba(41,199,111,.12); color:#94f7c1; border-color:rgba(41,199,111,.4) }
+.badge.expired{ background:rgba(255,91,91,.12); color:#ff9a9a; border-color:rgba(255,91,91,.4) }
+.badge.missing{ background:rgba(255,176,46,.12); color:#ffd596; border-color:rgba(255,176,46,.4) }
+
+.pagination{ display:flex; gap:8px; align-items:center; justify-content:flex-end; padding-top:8px }
+.page-btn{ background:#0e1530; border:1px solid var(--border-2); color:var(--fg); padding:6px 10px; border-radius:10px; cursor:pointer }
+.page-btn[disabled]{ opacity:.5; cursor:not-allowed }
+.page-info{ color:var(--muted); font-size:13px }
+</style>
+</head>
+<body>
+  <div class="topbar"><h1>Member Status</h1></div>
+
+  <div class="wrap">
+    <div class="panel">
+      <!-- Top controls -->
+      <div class="controls">
+        <div class="searchbar">
+          <input id="search" type="text" placeholder="Search name, email, or phone…"/>
+          <button class="clear-btn" id="clearSearch" title="Clear">✕</button>
+        </div>
+        <div class="filters" id="statusFilters"></div>
+      </div>
+
+      <div class="controls-row" style="margin-top:10px">
+        <div class="count" id="countLabel">Loading…</div>
+        <div><button class="btn outline" id="refreshBtn">Refresh</button></div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs" id="tabs"></div>
+
+      <!-- Table -->
+      <table class="table">
+        <thead>
+          <tr>
+            <th style="min-width:180px;">Name</th>
+            <th style="min-width:220px;">Email</th>
+            <th style="min-width:140px;">Phone</th>
+            <th style="min-width:140px;">Membership Type</th>
+            <th style="min-width:140px;">Expired Date</th>
+            <th style="min-width:140px;">Valid Check</th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr><td colspan="6" style="color:var(--muted);">Loading…</td></tr>
+        </tbody>
+      </table>
+
+      <div class="pagination">
+        <button class="page-btn" id="prevBtn">Prev</button>
+        <div class="page-info" id="pageInfo">Page 1</div>
+        <button class="page-btn" id="nextBtn">Next</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+/** State */
+const STATE = {
+  allRows: [],
+  filtered: [],
+  q: '',
+  status: 'All',
+  plans: [],          // list of plan names
+  activePlan: '',     // current tab
+  pageByPlan: {},     // per-plan page index
+  pageSize: 20
+};
+
+const STATUS_LIST = ['All','Active','Expired','Payment Missing'];
+const PREFERRED_PLAN_ORDER = ['Bookstore Member','Library Member'];
+
+const $ = id => document.getElementById(id);
+
+document.addEventListener('DOMContentLoaded', () => {
+  renderStatusChips();
+  bindEvents();
+  loadData();
+});
+
+function renderStatusChips(){
+  const box = $('statusFilters');
+  box.innerHTML = '';
+  STATUS_LIST.forEach(s => {
+    const el = document.createElement('div');
+    el.className = 'chip' + (STATE.status === s ? ' active' : '');
+    el.textContent = s;
+    el.dataset.value = s;
+    el.addEventListener('click', () => {
+      STATE.status = s;
+      document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+      el.classList.add('active');
+      resetPages();
+      applyFilter();
+    });
+    box.appendChild(el);
+  });
+}
+
+function bindEvents(){
+  const search = $('search');
+  const clear = $('clearSearch');
+  const refresh = $('refreshBtn');
+  const prev = $('prevBtn');
+  const next = $('nextBtn');
+
+  let t;
+  search.addEventListener('input', () => {
+    clearTimeout(t);
+    t = setTimeout(() => {
+      STATE.q = (search.value||'').trim();
+      resetPages();
+      applyFilter();
+    }, 200);
+  });
+  clear.addEventListener('click', () => {
+    search.value = '';
+    STATE.q = '';
+    resetPages();
+    applyFilter();
+  });
+  refresh.addEventListener('click', loadData);
+
+  prev.addEventListener('click', () => changePage(-1));
+  next.addEventListener('click', () => changePage(+1));
+}
+
+function resetPages(){
+  STATE.pageByPlan = {};
+}
+
+function loadData(){
+  setLoading();
+  google.script.run.withSuccessHandler(rows => {
+    STATE.allRows = Array.isArray(rows) ? rows : [];
+    // Determine available plan list and prioritize
+    const planSet = new Set(STATE.allRows.map(r => (r.plan||'Unspecified').trim() || 'Unspecified'));
+    const allPlans = Array.from(planSet);
+    const others = allPlans.filter(p => !PREFERRED_PLAN_ORDER.includes(p)).sort((a,b)=>a.localeCompare(b));
+    STATE.plans = PREFERRED_PLAN_ORDER.filter(p => planSet.has(p)).concat(others);
+
+    // Default active plan
+    STATE.activePlan = STATE.plans[0] || 'Unspecified';
+    resetPages();
+    applyFilter();
+  }).withFailureHandler(err => {
+    $('tbody').innerHTML = `<tr><td colspan="6" style="color:#ff9a9a;">Error: ${escapeHtml(err?.message||err)}</td></tr>`;
+    $('countLabel').textContent = 'Failed to load';
+  }).getMembers();
+}
+
+function setLoading(){
+  $('tbody').innerHTML = `<tr><td colspan="6" style="color:var(--muted);">Loading…</td></tr>`;
+  $('countLabel').textContent = 'Loading…';
+}
+
+function applyFilter(){
+  const q = STATE.q.toLowerCase();
+  const status = STATE.status;
+
+  STATE.filtered = STATE.allRows.filter(r => {
+    const hay = `${r.name||''} ${r.email||''} ${r.phone||''}`.toLowerCase();
+    const okQ = q ? hay.includes(q) : true;
+    const vc = (r.validCheck||'').trim().toLowerCase();
+    const okS = (status === 'All') ? true : (vc === status.toLowerCase());
+    return okQ && okS;
+  });
+
+  renderTabs();
+  renderTable();
+  updateCounts();
+}
+
+function renderTabs(){
+  const tabs = $('tabs');
+  tabs.innerHTML = '';
+
+  STATE.plans.forEach(plan => {
+    const countForPlan = STATE.filtered.filter(r => normalizePlan(r.plan) === plan).length;
+    const el = document.createElement('button');
+    el.className = 'tab' + (STATE.activePlan === plan ? ' active' : '');
+    el.textContent = `${plan} (${countForPlan})`;
+    el.addEventListener('click', () => {
+      STATE.activePlan = plan;
+      if (!STATE.pageByPlan[plan]) STATE.pageByPlan[plan] = 1;
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      el.classList.add('active');
+      renderTable();
+      updateCounts();
+    });
+    tabs.appendChild(el);
+  });
+}
+
+function renderTable(){
+  const plan = STATE.activePlan;
+  if (!STATE.pageByPlan[plan]) STATE.pageByPlan[plan] = 1;
+
+  const rows = STATE.filtered.filter(r => normalizePlan(r.plan) === plan);
+  const page = STATE.pageByPlan[plan];
+  const maxPage = Math.max(1, Math.ceil(rows.length / STATE.pageSize));
+  const safePage = Math.min(maxPage, Math.max(1, page));
+  if (safePage !== page) { STATE.pageByPlan[plan] = safePage; }
+
+  const start = (STATE.pageByPlan[plan]-1) * STATE.pageSize;
+  const end = start + STATE.pageSize;
+  const slice = rows.slice(start, end);
+
+  const html = slice.map(r => {
+    const vc = (r.validCheck||'').trim();
+    const badgeClass = vc === 'Active' ? 'badge active'
+                     : vc === 'Expired' ? 'badge expired'
+                     : vc === 'Payment Missing' ? 'badge missing'
+                     : 'badge';
+    return `<tr>
+      <td>${escapeHtml(r.name||'')}</td>
+      <td>${linkEmail(r.email)}</td>
+      <td>${linkPhone(r.phone)}</td>
+      <td>${escapeHtml(r.membershipType||'')}</td>
+      <td>${escapeHtml(r.expiredDateStr||'')}</td>
+      <td><span class="${badgeClass}">${escapeHtml(vc||'')}</span></td>
+    </tr>`;
+  }).join('');
+
+  $('tbody').innerHTML = html || `<tr><td colspan="6" style="color:var(--muted);">No results</td></tr>`;
+
+  $('pageInfo').textContent = `Page ${STATE.pageByPlan[plan]} of ${maxPage}`;
+  $('prevBtn').disabled = (STATE.pageByPlan[plan] <= 1);
+  $('nextBtn').disabled = (STATE.pageByPlan[plan] >= maxPage);
+}
+
+function changePage(delta){
+  const plan = STATE.activePlan;
+  const rows = STATE.filtered.filter(r => normalizePlan(r.plan) === plan);
+  const maxPage = Math.max(1, Math.ceil(rows.length / STATE.pageSize));
+  const cur = STATE.pageByPlan[plan] || 1;
+  const nxt = Math.min(maxPage, Math.max(1, cur + delta));
+  STATE.pageByPlan[plan] = nxt;
+  renderTable();
+  updateCounts();
+}
+
+function updateCounts(){
+  const total = STATE.filtered.length;
+  $('countLabel').textContent = `${total} record${total===1?'':'s'} | Plan: ${STATE.activePlan}`;
+}
+
+/* Helpers */
+function normalizePlan(p){
+  const v = (p||'').trim();
+  return v || 'Unspecified';
+}
+function escapeHtml(s){
+  return String(s ?? '')
+   .replaceAll('&','&amp;')
+   .replaceAll('<','&lt;')
+   .replaceAll('>','&gt;')
+   .replaceAll('"','&quot;')
+   .replaceAll("'","&#39;");
+}
+function linkEmail(e){
+  const v = (e||'').trim();
+  return v ? `<a href="mailto:${encodeURIComponent(v)}" style="color:#9dd1ff;">${escapeHtml(v)}</a>` : '';
+}
+function linkPhone(p){
+  const v = (p||'').trim();
+  return v ? `<a href="tel:${encodeURIComponent(v)}" style="color:#ffd1d1;">${escapeHtml(v)}</a>` : '';
+}
+</script>
+</body>
+</html>
