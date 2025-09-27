@@ -1,0 +1,30 @@
+<style>
+:root{
+--bg:#0b1020; --fg:#f1f4f9; --muted:#aab3c2; --card:#121833;
+--accent:#ff3b3b; --border:rgba(255,255,255,.10); --border-2:rgba(255,255,255,.16);
+}
+*{ box-sizing:border-box }
+html,body{ margin:0; background:var(--bg); color:var(--fg); font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial }
+.topbar{ display:flex; gap:12px; align-items:center; padding:10px 12px; background:rgba(255,255,255,.04); border-bottom:1px solid var(--border); position:sticky; top:0; backdrop-filter:saturate(140%) blur(6px); z-index:2 }
+.topbar h1{ margin:0; font-size:16px; color:#ffd2d2 }
+.filters{ margin-left:auto; display:flex; gap:8px; align-items:center }
+input[type="search"], select{ background:#0f1733; color:var(--fg); border:1px solid var(--border-2); border-radius:10px; padding:8px 10px; outline:none }
+button{ background:var(--accent); color:#fff; border:none; border-radius:10px; padding:8px 12px; font-weight:600; cursor:pointer }
+button:hover{ filter:brightness(1.05) }
+.switch{ color:#83d0ff; text-decoration:none; font-size:12px }
+.switch:hover{ text-decoration:underline }
+.wrap{ padding:12px }
+.grid{ width:100%; border-collapse:separate; border-spacing:0; background:var(--card); border:1px solid var(--border); border-radius:14px; overflow:hidden }
+.grid thead th{ text-align:left; padding:10px; font-size:12px; color:var(--muted); background:rgba(255,255,255,.03); position:sticky; top:48px }
+.grid tbody td{ padding:10px; border-top:1px solid var(--border); vertical-align:middle }
+.grid tbody tr:hover{ background:rgba(255,255,255,.03) }
+.mono{ font-family:ui-monospace,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace; color:#c7d2fe }
+.num{ text-align:right }
+.link a{ color:#83d0ff; text-decoration:none }
+.link a:hover{ text-decoration:underline }
+.toast{ position:fixed; right:16px; bottom:16px; background:#142044; color:#e8f3ff; padding:10px 14px; border-radius:12px; border:1px solid var(--border-2); box-shadow:0 10px 30px rgba(0,0,0,.25) }
+.toast.bad{ background:#3a0e0e; color:#ffe3e3 }
+body.loading{ cursor:progress }
+body.loading .grid{ opacity:.6 }
+.date{ white-space:nowrap }
+</style>

@@ -1,0 +1,85 @@
+//function printReceipt(){ 
+//  const res=state.lastSale; 
+//  if(!res) 
+//  return; 
+//  const width=byId('paperWidth').value||'80mm'; 
+//  const doc=buildReceiptHTML(res,width); 
+//  const iframe=byId('printFrame'); 
+//  const win=iframe.contentWindow; 
+//  win.document.open(); 
+//  win.document.write(doc); 
+//  win.document.close(); 
+//  win.focus(); 
+//  win.print(); 
+//}
+//
+//function buildReceiptHTML(res, width){
+//      const b = res.buyer || {};
+//      const lines = res.lines || [];
+//      const sum = res.summary || { subtotal:0, discount:0, tax:0, total:0, taxRate:0 };
+//    
+//      // Render HTML line breaks for buyer block
+//      const buyerTextHtml = b.type === 'Member'
+//        ? `${esc(b.name || '')}<br>${esc(b.email || '')}${b.phone ? '<br>'+esc(b.phone) : ''}`
+//        : `${esc(b.name || '')}${b.phone ? '<br>'+esc(b.phone) : ''}`;
+//    
+//      // IMPORTANT: keep the template literal on the same line as 'return'
+//      return `<!DOCTYPE html>
+//    <html>
+//      <head>
+//        <meta charset="utf-8">
+//        <style>
+//          @page { size: ${width} auto; margin: 2mm; }
+//          body { font-family: monospace; font-size: 12px; }
+//          .center { text-align: center; }
+//          .tot { border-top: 1px dashed #000; padding-top: 6px; margin-top: 6px; }
+//          .row { display: flex; justify-content: space-between; }
+//        </style>
+//      </head>
+//      <body>
+//        <div class="center"><strong>Little Leaders Bookstore POS</strong></div>
+//        <div class="center">Sale: ${esc(res.saleId)}</div>
+//        <div class="center">${new Date(res.ts).toLocaleString()}</div>
+//    
+//        <div>Customer:<br>${buyerTextHtml}</div>
+//        <hr/>
+//    
+//        ${lines.map(L => `
+//          <div>
+//            <div>${esc(L.BookTitle)}</div>
+//            <div class="row">
+//              <span>${esc(L.ISBN)} x ${L.qty}</span>
+//              <span>${Number(L.unitPrice).toFixed(2)}</span>
+//            </div>
+//            ${L.base > 0 && L.lineDiscount > 0 ? `
+//              <div class="row">
+//                <span>Discount</span>
+//                <span>-${Number(L.lineDiscount).toFixed(2)}</span>
+//              </div>` : ``}
+//            <div class="row">
+//              <span>Line Total</span>
+//              <span>${Number(L.lineTotal).toFixed(2)}</span>
+//            </div>
+//          </div>
+//        `).join('')}
+//    
+//        <div class="tot">
+//          <div class="row"><span>Subtotal</span><span>${Number(sum.subtotal).toFixed(2)}</span></div>
+//          ${sum.discount > 0 ? `
+//            <div class="row">
+//              <span>Discount</span>
+//              <span>-${Number(sum.discount).toFixed(2)}</span>
+//            </div>` : ``}
+//          ${sum.tax > 0 ? `
+//            <div class="row">
+//              <span>Tax (${(Number(sum.taxRate)*100).toFixed(1)}%)</span>
+//              <span>${Number(sum.tax).toFixed(2)}</span>
+//            </div>` : ``}
+//          <div class="row"><strong>Total</strong><strong>${Number(sum.total).toFixed(2)}</strong></div>
+//        </div>
+//    
+//        <div class="center">Thank you</div>
+//      </body>
+//    </html>`;
+//}
+//

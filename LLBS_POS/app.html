@@ -1,0 +1,376 @@
+<script>
+//const MEMBER_DISCOUNT_RATE = 0.10;   // 10%
+const TAX_RATE_DEFAULT = 0;          // tax disabled for now
+const DEFAULT_MEMBER_DISCOUNT_PCT = 10; // 10%
+
+function money(n){ return Number(n||0).toFixed(2); }
+function subtotalPositive(){
+  return state.cart.reduce((s, L) => {
+    const base = Number(L.unitPrice) * Number(L.qty);
+    return s + (base > 0 ? base : 0);
+  }, 0);
+}
+const state={ items:[], results:[], cart:[], buyer:{ type:'Other', member_id:null, email:null, name:'Other Customer', phone:'' }, lastSale:null };
+function byId(id){ return document.getElementById(id); }
+function fmt(n){ return Number(n||0).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2}); }
+function esc(s){ return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c])); }
+
+(function init(){
+  google.script.run.withSuccessHandler(loadItems).listItems();
+
+  const taxEl = byId('taxRate');
+  if (taxEl) {
+    taxEl.value = TAX_RATE_DEFAULT;
+    taxEl.disabled = true;
+  }
+
+  const discEl = byId('orderDiscount');
+  if (discEl) discEl.addEventListener('input', refreshPreview);
+
+  // Default buyer
+  state.buyer = { type:'Other', member_id:null, email:null, name:'Other Customer', phone:'' };
+  uiSelectBuyerTab('Other');
+  bindOtherAutoUse();
+  showBuyerBadge();
+
+  google.script.run.withSuccessHandler(fillPaymentOptions).listPaymentTypes();
+  refreshPreview();
+})();
+
+function loadItems(items){ state.items=items||[]; const dd=byId('itemDropdown'); dd.innerHTML='<option value="">— Add from Items —</option>'+state.items.map(it=>`<option value="${esc(it.ISBN)}">${esc(it.BookTitle)} — ${esc(it.ISBN)}</option>`).join(''); renderCart(); }
+
+function fillPaymentOptions(list){
+  const el = byId('paymentMethod');
+  if (!el) return;
+  const opts = (list || []).map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
+  el.innerHTML = `<option value="">— Select payment —</option>${opts}`;
+}
+
+function search(){ const q=byId('q').value||''; google.script.run.withSuccessHandler(renderResults).searchItems(q); }
+function renderResults(items){ state.results=items||[]; const el=byId('results'); if(!items.length){ el.innerHTML='<div class="muted">No matches.</div>'; return; } el.innerHTML=items.map((it,idx)=>`<div class="result-row"><div class="result-main"><div class="title">${esc(it.BookTitle)}</div><div class="muted">ISBN: ${esc(it.ISBN)} • ${esc(it.Type)} • Unit ${fmt(it.Price)}</div></div><div class="result-ctls"><input id="qty-${idx}" class="input tiny" type="number" step="1" value="1"/><button class="btn" onclick="addToCartByIndex(${idx})">Add</button></div></div>`).join(''); }
+function addToCartByIndex(idx){ const it=state.results[idx]; if(!it) return; let qty=1; const qEl=byId('qty-'+idx); if(qEl) qty=Number(qEl.value||1); addToCart(it.ISBN, qty); refreshPreview();}
+function addFromDropdown(){ const isbn=byId('itemDropdown').value; if(!isbn) return; addToCart(isbn,1); byId('itemDropdown').value='';refreshPreview(); }
+function addToCart(isbn,qty=1){ const it=state.items.find(x=>String(x.ISBN)===String(isbn)); if(!it) return; const existing=state.cart.find(x=>String(x.ISBN)===String(isbn)); if(existing) existing.qty+=qty; else state.cart.push({ ISBN:it.ISBN, BookTitle:it.BookTitle, Type:it.Type, qty:qty, unitPrice:it.Price, notes:'' }); renderCart();refreshPreview(); }
+function changeQty(i,d){ state.cart[i].qty+=d; if(state.cart[i].qty===0) state.cart.splice(i,1); renderCart();refreshPreview(); }
+function setQty(i,v){ state.cart[i].qty=Number(v||0); if(state.cart[i].qty===0) state.cart.splice(i,1); renderCart();refreshPreview(); }
+function setNotes(i,v){ state.cart[i].notes=v; }
+function removeLine(i){ state.cart.splice(i,1); renderCart();refreshPreview();}
+
+function uiSelectBuyerTab(which){
+  const m = which === 'Member';
+  byId('tabMember').classList.toggle('active', m);
+  byId('tabOther').classList.toggle('active', !m);
+  byId('memberPane').classList.toggle('hidden', !m);
+  byId('otherPane').classList.toggle('hidden', m);
+
+  if (!m) {
+    bindOtherAutoUse();
+    // nice touch: focus name field
+    setTimeout(() => byId('otherName')?.focus(), 0);
+  }
+}
+
+
+function searchMemberUI(){ const mode=byId('memberSearchMode').value; const q=byId('memberQuery').value||''; if(!q){ byId('memberResults').innerHTML='<div class="warn">Enter a value first.</div>'; return; } google.script.run.withSuccessHandler(renderMemberSearch).findMember({by:mode, value:q}); }
+function renderMemberSearch(res){ const el=byId('memberResults'); if(!res||res.none){ el.innerHTML='<div class="muted">No match. You can switch to Other customer.</div>'; return; } if(res.error){ el.innerHTML=`<div class="error">${esc(res.error)}</div>`; return; } if(res.match){ const m=res.match; const warn=res.warnInactive?'<div class="warn">Member not active</div>':''; el.innerHTML=`<div class="pick"><div><strong>${esc(m.name||'(no name)')}</strong></div><div class="muted">${esc(m.email||'')} • ${esc(m.phone_primary||'')}</div>${warn}<div class="row"><button class="btn" onclick="useMember('${esc(m.member_id)}','${esc(m.email)}','${esc(m.name)}','${esc(m.phone_primary)}')">Use this member</button></div></div>`; return; } if(res.multiple&&res.multiple.length){ el.innerHTML=res.multiple.map(m=>`<div class="pick"><div><strong>${esc(m.name||'(no name)')}</strong></div><div class="muted">${esc(m.email||'')} • ${esc(m.phone_primary||'')}</div><div class="row"><button class="btn" onclick="useMember('${esc(m.member_id)}','${esc(m.email)}','${esc(m.name)}','${esc(m.phone_primary)}')">Select</button></div></div>`).join(''); return; } el.innerHTML='<div class="muted">No match.</div>'; }
+
+function useMember(id,email,name,phone){
+  state.buyer = { type:'Member', member_id:id||null, email:email||null, name:name||'', phone:phone||'' };
+  showBuyerBadge();
+  // If cashier hasn’t set a % yet, prefill 10
+  const el = byId('orderDiscount');
+  if (!el.value || Number(el.value) === 0) el.value = DEFAULT_MEMBER_DISCOUNT_PCT;
+  refreshPreview();
+}
+
+function useOtherCustomer(){
+  const name = (byId('otherName').value||'').trim();
+  const phone = (byId('otherPhone').value||'').trim();
+  state.buyer = { type:'Other', member_id:null, email:null, name: name || 'Other Customer', phone };
+  showBuyerBadge();
+  // Keep whatever % is in the box (0 by default)
+  refreshPreview();
+}
+function showBuyerBadge(){ const b=state.buyer; const el=byId('buyerBadge'); const txt=b.type==='Member'?`${esc(b.name)} • ${esc(b.email||'')} • ${esc(b.phone||'')}`:`${esc(b.name)}${b.phone?' • '+esc(b.phone):''}`; el.textContent=(b.type==='Member'?'Member: ':'Buyer: ')+txt; el.classList.remove('hidden'); }
+
+function renderCart(){ const el=byId('cart'); if(!state.cart.length){ el.innerHTML='<div class="muted">Cart is empty.</div>'; return; } el.innerHTML=state.cart.map((L,i)=>`<div class="line"><div class="grow"><div class="title">${esc(L.BookTitle)}</div><div class="muted">${esc(L.ISBN)} • ${esc(L.Type)}</div></div><div class="qty-ctls"><button class="btn tiny" onclick="changeQty(${i},-1)">−</button><input class="input tiny" type="number" value="${L.qty}" onchange="setQty(${i}, this.value)" /><button class="btn tiny" onclick="changeQty(${i},+1)">+</button></div><div class="price">@ ${fmt(L.unitPrice)}</div><div class="price strong">${fmt(L.unitPrice*L.qty)}</div><div class="notes"><input class="input" placeholder="Notes (optional)" value="${esc(L.notes)}" onchange="setNotes(${i}, this.value)"/></div><button class="btn danger tiny" onclick="removeLine(${i})">Remove</button></div>`).join(''); }
+
+function checkout(){
+  if (!state.cart.length) { alert('Cart is empty.'); return; }
+  if (state.buyer.type==='Member' && !state.buyer.member_id) {
+    alert('Select a member first or switch to Other customer.');
+    return;
+  }
+
+  const lines = state.cart
+    .map(L => ({ ISBN:String(L.ISBN), qty:Number(L.qty), notes:String(L.notes||'') }))
+    .filter(L => !Number.isNaN(L.qty) && L.qty !== 0);
+  if (!lines.length) { alert('No valid lines to submit.'); return; }
+  // Require payment method
+  const paymentEl = byId('paymentMethod');
+  const paymentMethod = paymentEl ? (paymentEl.value || '').trim() : '';
+  if (!paymentMethod) { alert('Please select a payment method.'); return; }
+
+  const subPos = subtotalPositive();
+
+  // Get the % from input (clamped), fall back to 10% for Member if 0
+  let pct = Number(byId('orderDiscount').value || 0);
+  if (Number.isNaN(pct)) pct = 0;
+  if (pct < 0) pct = 0;
+  if (pct > 100) pct = 100;
+  if (pct === 0 && state.buyer.type === 'Member') pct = DEFAULT_MEMBER_DISCOUNT_PCT;
+
+  // Convert to AMOUNT for the server (server expects amount, not %)
+  const discountAmt = Math.round(subPos * (pct/100) * 100) / 100;
+
+  const payload = {
+    lines,
+    discount: discountAmt,  // amount
+    taxRate: 0,             // tax disabled for now
+    buyer: state.buyer,
+    paymentMethod
+  };
+
+  setSubmitting(true);
+  google.script.run
+    .withSuccessHandler(res => { setSubmitting(false); orderDone(res); })
+    .withFailureHandler(err => { setSubmitting(false); alert('Submit failed: ' + (err?.message || String(err || 'unknown'))); })
+    .submitOrder(payload);
+}
+
+
+
+function orderDone(res){
+  // res will be defined unless the server truly returned nothing
+  if (!res) { alert('Submit failed: no response from server'); return; }
+  if (res.error) { alert('Submit failed: ' + res.error); return; }
+
+  state.lastSale = res;
+
+  // show print confirm as before
+  const b = res.buyer || {};
+  byId('printBuyer').textContent = (b.type === 'Member'
+    ? `${b.name || ''} • ${b.email || ''} • ${b.phone || ''}`
+    : `${b.name || ''}${b.phone ? ' • ' + b.phone : ''}`);
+
+  byId('printModal').classList.remove('hidden');
+}
+
+function closePrintModal(){ 
+  byId('printModal').classList.add('hidden'); 
+  resetAfterCheckout(); 
+}
+
+// subtotal of positive lines only (discount base)
+function subtotalPositive(){
+  return state.cart.reduce((s, L) => {
+    const base = Number(L.unitPrice) * Number(L.qty);
+    return s + (base > 0 ? base : 0);
+  }, 0);
+}
+function resetAfterCheckout(){
+  // Clear cart
+  state.cart = [];
+  renderCart();
+
+  // Reset discount
+  const discInput = byId('orderDiscount');
+  if (discInput) discInput.value = 0;
+
+  // Reset payment select
+  const paySel = byId('paymentMethod');
+  if (paySel) paySel.value = '';
+
+  // Clear Other customer inputs and refresh buyer state/badge
+  clearOtherInputs();
+  state.buyer = { type:'Other', member_id:null, email:null, name:'Other Customer', phone:'' };
+  applyOtherBuyerFromInputs(); // ensures badge + preview reflect cleared fields
+
+  refreshPreview();
+}
+
+
+
+function refreshPreview(){
+  const subPos = subtotalPositive();
+
+  // Read percent from input, clamp 0–100
+  let pct = Number(byId('orderDiscount').value || 0);
+  if (Number.isNaN(pct)) pct = 0;
+  if (pct < 0) pct = 0;
+  if (pct > 100) pct = 100;
+
+  // Member convenience: if 0 and buyer is Member, display default 10 (but do not overwrite field while typing)
+  const effPct = (pct === 0 && state.buyer.type === 'Member') ? DEFAULT_MEMBER_DISCOUNT_PCT : pct;
+
+  const discountAmt = Math.round(subPos * (effPct/100) * 100) / 100;
+  const total = subPos - discountAmt; // tax=0
+
+  // Update preview
+  byId('pvSubtotal').textContent = money(subPos);
+  byId('pvDiscount').textContent = '-' + money(discountAmt);
+  byId('pvTotal').textContent = money(total);
+
+  // Label shows the effective % used
+  byId('pvDiscLabel').textContent = `Discount (${effPct}%)`;
+}
+
+function setSubmitting(isBusy){
+  const overlay = byId('busyOverlay');
+  const btn = byId('checkoutBtn');
+  if (overlay) overlay.classList.toggle('hidden', !isBusy);
+  if (btn) { btn.disabled = !!isBusy; btn.classList.toggle('disabled', !!isBusy); }
+}
+
+
+function printReceipt(){ 
+  const res=state.lastSale; 
+  if(!res) 
+  return; 
+  const width=byId('paperWidth').value||'80mm'; 
+  const doc=buildReceiptHTML(res,width); 
+  const iframe=byId('printFrame'); 
+  const win=iframe.contentWindow; 
+  win.document.open(); 
+  win.document.write(doc); 
+  win.document.close(); 
+  win.focus(); 
+  win.print(); 
+}
+
+function buildReceiptHTML(res, width){
+  const b = res.buyer || {};
+  const lines = res.lines || [];
+  const sum = res.summary || { subtotal:0, discount:0, tax:0, total:0, taxRate:0 };
+
+  const buyerTextHtml = b.type === 'Member'
+    ? `${esc(b.name || '')}<br>${esc(b.email || '')}${b.phone ? '<br>'+esc(b.phone) : ''}`
+    : `${esc(b.name || '')}${b.phone ? '<br>'+esc(b.phone) : ''}`;
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    /* Keep auto height to avoid landscape; make margins tiny */
+    @page { size: ${width} auto; margin: 1.5mm; }
+
+    /* Tight layout to minimize paper */
+    *{ box-sizing:border-box; margin:0; padding:0; }
+    html, body { width:${width}; background:#fff; }
+    body {
+      font-family: monospace;
+      font-size: 12px;
+      line-height: 1.15;           /* tighter */
+      display: inline-block;        /* helps some drivers stop at content end */
+    }
+    #ticket{
+      width:${width};
+      display:inline-block;         /* measure box ~= printed box */
+      overflow: hidden;             /* prevent spill that could extend the job */
+    }
+
+    .center { text-align: center; }
+    .row { display:flex; justify-content:space-between; gap:6px; }
+    hr { border:0; border-top:1px dashed #000; margin:4px 0; } /* tighter */
+    .line { margin:2px 0; }         /* tighter rows */
+    .tot { border-top:1px dashed #000; padding-top:4px; margin-top:4px; }
+
+    /* Avoid accidental page breaks inside rows on some engines */
+    .row, .line, .tot { break-inside: avoid; page-break-inside: avoid; }
+
+    /* Ensure no extra space at end */
+    #ticket::after { content:''; display:block; height:0; }
+    @media print {
+      body { margin:0; }            /* browsers sometimes inject margins */
+    }
+  </style>
+</head>
+<body>
+  <div id="ticket">
+    <div class="center"><strong>Little Leaders Bookstore POS</strong></div>
+    <div class="center">Sale: ${esc(res.saleId)}</div>
+    <div class="center">${new Date(res.ts).toLocaleString()}</div>
+    <div class="center">Payment: ${esc(res.paymentMethod || (res.summary && res.summary.paymentType) || '')}</div>
+
+    <div>Customer:<br>${buyerTextHtml}</div>
+    <hr/>
+
+    ${lines.map(L => `
+      <div class="line">
+        <div>${esc(L.BookTitle)}</div>
+        <div class="row">
+          <span>${esc(L.ISBN)} x ${L.qty}</span>
+          <span>${Number(L.unitPrice).toFixed(2)}</span>
+        </div>
+        ${L.base > 0 && L.lineDiscount > 0 ? `
+          <div class="row">
+            <span>Discount</span>
+            <span>-${Number(L.lineDiscount).toFixed(2)}</span>
+          </div>` : ``}
+        <div class="row">
+          <span>Line Total</span>
+          <span>${Number(L.lineTotal).toFixed(2)}</span>
+        </div>
+      </div>
+    `).join('')}
+
+    <div class="tot">
+      <div class="row"><span>Subtotal</span><span>${Number(sum.subtotal).toFixed(2)}</span></div>
+      ${sum.discount > 0 ? `
+        <div class="row"><span>Discount</span><span>-${Number(sum.discount).toFixed(2)}</span></div>` : ``}
+      ${sum.tax > 0 ? `
+        <div class="row"><span>Tax (${(Number(sum.taxRate)*100).toFixed(1)}%)</span><span>${Number(sum.tax).toFixed(2)}</span></div>` : ``}
+      <div class="row"><strong>Total</strong><strong>${Number(sum.total).toFixed(2)}</strong></div>
+    </div>
+
+    <div class="center">Thank you</div>
+  </div>
+</body>
+</html>`;
+}
+
+function applyOtherBuyerFromInputs(){
+  const nameEl  = byId('otherName');
+  const phoneEl = byId('otherPhone');
+  const name  = (nameEl?.value || '').trim();
+  const phone = (phoneEl?.value || '').trim();
+
+  // Keep type = 'Other' (server will show 'Other Customer' label)
+  state.buyer = {
+    type: 'Other',
+    member_id: null,
+    email: null,
+    name: name || 'Other Customer',
+    phone
+  };
+  showBuyerBadge();
+  // No special discount for Other; just refresh preview to be safe
+  refreshPreview();
+}
+
+function bindOtherAutoUse(){
+  const nameEl  = byId('otherName');
+  const phoneEl = byId('otherPhone');
+  if (!nameEl && !phoneEl) return;
+
+  const handler = () => applyOtherBuyerFromInputs();
+
+  ['input','change','blur'].forEach(ev => {
+    if (nameEl)  nameEl.addEventListener(ev, handler);
+    if (phoneEl) phoneEl.addEventListener(ev, handler);
+  });
+
+  // Apply once in case fields already have text (e.g., back/forward cache)
+  applyOtherBuyerFromInputs();
+}
+
+function clearOtherInputs(){
+  const nameEl  = byId('otherName');
+  const phoneEl = byId('otherPhone');
+  if (nameEl)  nameEl.value  = '';
+  if (phoneEl) phoneEl.value = '';
+}
+
+
+</script>

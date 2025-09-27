@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Little Leaders Bookstore POS V5</title>
+    <?!= include('style'); ?>
+  </head>
+  <body>
+    <header class="topbar"><h1>Little Leaders Bookstore POS V5</h1></header>
+    <main class="wrap">
+      <section class="catalog">
+        <div class="search-row">
+          <input id="q" class="input" placeholder="Search by Title or ISBN" onkeydown="if(event.key==='Enter') search();" />
+          <button class="btn" onclick="search()">Search</button>
+          <select id="itemDropdown" class="select" onchange="addFromDropdown()"></select>
+        </div>
+        <div id="results" class="results"></div>
+      </section>
+      <section class="order">
+        <div class="customer-card" id="customerCard">
+          <div class="tabs">
+            <button id="tabMember" class="tab active" onclick="uiSelectBuyerTab('Member')">Member</button>
+            <button id="tabOther" class="tab" onclick="uiSelectBuyerTab('Other')">Other customer</button>
+          </div>
+          <div id="memberPane" class="pane">
+            <div class="row">
+              <select id="memberSearchMode" class="select small"><option value="email">Email</option><option value="phone">Phone</option></select>
+              <input id="memberQuery" class="input" placeholder="Enter email or phone" onkeydown="if(event.key==='Enter') searchMemberUI();" />
+              <button class="btn" onclick="searchMemberUI()">Find</button>
+            </div>
+            <div id="memberResults" class="member-results"></div>
+          </div>
+          <div id="otherPane" class="pane hidden">
+            <div class="row">
+              <input id="otherName" class="input" placeholder="Customer name (optional)" />
+              <input id="otherPhone" class="input" placeholder="Phone (optional)" />
+            </div>
+          </div>
+
+          <div id="buyerBadge" class="buyer-badge hidden"></div>
+        </div>
+        <div id="cart" class="cart"></div>
+        <div class="totals">
+          <div class="row">
+            <label for="orderDiscount">Order Discount (%)</label>
+            <input id="orderDiscount" class="input small" type="number" step="0.1" value="0"/>
+          </div>
+
+          <div class="row">
+            <label>Tax Rate</label>
+            <input id="taxRate" class="input small" type="number" step="0.001" value="0"/> 
+            <span class="muted">(tax disabled for now)</span>
+          </div>
+
+          <!-- NEW: live preview -->
+          <div id="calcPreview" style="border-top:1px solid rgba(255,255,255,.08); margin-top:6px; padding-top:6px;">
+            <div class="row"><span>Subtotal</span><span id="pvSubtotal">0.00</span></div>
+            <div class="row"><span id="pvDiscLabel">Discount</span><span id="pvDiscount">-0.00</span></div>
+            <div class="row strong"><span>Total</span><span id="pvTotal">0.00</span></div>
+          </div>
+          <div class="row">
+            <label>Payment Method</label>
+            <select id="paymentMethod" class="select">
+              <option value="">— Select payment —</option>
+              <!-- options populated at runtime -->
+            </select>
+          </div>
+
+          <div class="row end">
+            <button id="checkoutBtn" class="btn primary" onclick="checkout()">Checkout</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div id="printModal" class="modal hidden">
+      <div class="modal-body">
+        <h3>Sale completed</h3>
+        <div id="printBuyer" class="muted"></div>
+        <div class="row"><label>Receipt width</label><select id="paperWidth" class="select"><option value="80mm">80mm</option><option value="58mm">58mm</option></select></div>
+        <div class="row end gap"><button class="btn" onclick="closePrintModal()">Close</button><button class="btn primary" onclick="printReceipt()">Print</button></div>
+      </div>
+    </div>
+
+    <iframe id="printFrame" class="offscreen"></iframe>
+    <div id="busyOverlay" class="busy-overlay hidden">
+      <div class="busy-card">
+        <div class="spinner"></div>
+        <div>Processing…</div>
+      </div>
+    </div>
+
+    <?!= include('app'); ?>
+  </body>
+</html>

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Book Renting Record — Viewer</title>
+  <style>
+    :root{
+      --bg:#0b1020; --fg:#f1f4f9; --card:#121833; --border:rgba(255,255,255,.12);
+      --accent:#ff3b3b; --muted:#aab3c2;
+    }
+    *{box-sizing:border-box}
+    body{margin:0; font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial;background:var(--bg);color:var(--fg)}
+    .topbar{padding:12px 16px; border-bottom:1px solid var(--border); background:rgba(255,255,255,.03)}
+    .topbar h1{margin:0; font-size:18px}
+    .wrap{padding:12px 16px}
+    .bar{display:flex; gap:12px; align-items:center; margin:10px 0; flex-wrap:wrap}
+    input[type="search"]{padding:8px 10px; border:1px solid var(--border); background:#0f1738; color:var(--fg); border-radius:8px; width:280px}
+    select{padding:6px 8px; border-radius:8px; background:#0f1738; color:var(--fg); border:1px solid var(--border)}
+    button{padding:8px 12px; background:var(--accent); color:#fff; border:0; border-radius:8px; cursor:pointer}
+    input[type="checkbox"]{accent-color:var(--accent)}
+    label{display:inline-flex; align-items:center; gap:6px; font-size:13px}
+    .small{font-size:12px; margin-left:8px}
+    .muted{color:var(--muted)}
+    .loading{opacity:.6; pointer-events:none}
+    #msg{font-size:12px}
+    .scroll{max-height:70vh; overflow:auto; border-radius:10px}
+    table{width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--border); border-radius:10px; overflow:hidden}
+    thead th{position:sticky; top:0; background:#18224a; text-align:left; padding:8px 10px; font-weight:600; font-size:13px; border-bottom:1px solid var(--border); white-space:nowrap}
+    tbody td{padding:8px 10px; border-bottom:1px solid var(--border); font-size:13px; vertical-align:middle}
+    tbody tr:hover{background:rgba(255,255,255,.04)}
+    /* Make links (Upload Photo) clearly visible */
+    table a{color:#fff; text-decoration:underline}
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>Book Renting Record <span class="muted small" id="count"></span></h1>
+  </div>
+
+  <div class="wrap">
+    <div class="bar">
+      <input id="q" type="search" placeholder="Filter rows (matches any cell)..." />
+      <label><input id="overdueOnly" type="checkbox" /> Overdue only</label>
+      <label>View
+        <select id="viewSel">
+          <option value="uncompleted" selected>Uncompleted</option>
+          <option value="completed">Completed only</option>
+          <option value="all">All</option>
+        </select>
+      </label>
+      <button id="refreshBtn" type="button">Refresh</button>
+      <span id="msg" class="muted"></span>
+    </div>
+
+    <div class="scroll">
+      <table id="tbl">
+        <thead><tr id="theadRow"></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <template id="rowTmpl"><tr></tr></template>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const theadRow = $('theadRow'), tbody = $('tbody'), countEl = $('count'), msg = $('msg');
+
+    let headers = [];
+    let records = []; // [{row, cells[], status}]
+
+    // --- date helpers ---
+    function toDate(v){
+      if (v == null || v === '') return null;
+      if (v instanceof Date) return isFinite(v) ? v : null;
+      if (typeof v === 'number'){ const d = new Date(Math.round((v - 25569) * 86400 * 1000)); return isFinite(d) ? d : null; }
+      const d = new Date(v); return isFinite(d) ? d : null;
+    }
+    function isOverdue(due){
+      const d = toDate(due); if(!d) return false;
+      const today = new Date(); d.setHours(0,0,0,0); today.setHours(0,0,0,0);
+      return d < today;
+    }
+
+    function render(table, filter='') {
+      headers = table.headers || [];
+      records = table.records || [];
+
+      // Build header: original + "Return Check" + "Action"
+      theadRow.innerHTML = '';
+      headers.forEach(h => {
+        const th = document.createElement('th');
+        th.textContent = h || '';
+        theadRow.appendChild(th);
+      });
+      const thCtrl = document.createElement('th'); thCtrl.textContent = 'Return Check'; theadRow.appendChild(thCtrl);
+      const thSave = document.createElement('th'); thSave.textContent = 'Action'; theadRow.appendChild(thSave);
+
+      // 1) status view
+      const viewMode = $('viewSel').value; // uncompleted | completed | all
+      let view = records;
+      if (viewMode === 'uncompleted') view = records.filter(r => r.status !== 'Complete');
+      else if (viewMode === 'completed') view = records.filter(r => r.status === 'Complete');
+
+      // 2) overdue filter
+      const overdueOn = $('overdueOnly').checked;
+      if (overdueOn) {
+        const dueIdx = headers.findIndex(h => String(h).trim().toLowerCase() === 'due date');
+        if (dueIdx >= 0) view = view.filter(r => isOverdue(r.cells[dueIdx]));
+      }
+
+      // 3) search
+      const q = filter.trim().toLowerCase();
+      const filtered = q
+        ? view.filter(r => r.cells.some(c => String(c).toLowerCase().includes(q)))
+        : view;
+
+      // body
+      tbody.innerHTML = '';
+      filtered.forEach(rec => {
+        const tr = document.createElement('tr');
+
+        rec.cells.forEach((c, idx) => {
+          const td = document.createElement('td');
+          const header = headers[idx] || '';
+
+          // Upload Photo clickable link (white, via CSS above)
+          if (header.toLowerCase().includes('upload photo') && c) {
+            try { const url = new URL(String(c)); td.innerHTML = `<a href="${url.href}" target="_blank" rel="noopener">View</a>`; }
+            catch { td.textContent = c; }
+          } else {
+            td.textContent = c;
+          }
+          tr.appendChild(td);
+        });
+
+        // status dropdown
+        const tdSel = document.createElement('td');
+        const sel = document.createElement('select');
+        ['Ongoing','Partial Return','Complete'].forEach(v => {
+          const opt = document.createElement('option'); opt.value = v; opt.textContent = v; sel.appendChild(opt);
+        });
+        sel.value = rec.status;
+        tdSel.appendChild(sel);
+        tr.appendChild(tdSel);
+
+        // save button
+        const tdBtn = document.createElement('td');
+        const btn = document.createElement('button');
+        btn.textContent = 'Save'; btn.type = 'button';
+        btn.addEventListener('click', () => save(rec.row, sel.value));
+        tdBtn.appendChild(btn);
+        tr.appendChild(tdBtn);
+
+        tbody.appendChild(tr);
+      });
+
+      countEl.textContent = `(${filtered.length} rows)`;
+      const parts = [];
+      parts.push(viewMode === 'uncompleted' ? 'Uncompleted' : (viewMode === 'completed' ? 'Completed only' : 'All'));
+      if ($('overdueOnly').checked) parts.push('Overdue only');
+      if (q) parts.push('Filtered');
+      msg.textContent = parts.join(' • ');
+    }
+
+    function load() {
+      document.body.classList.add('loading');
+      msg.textContent = 'Loading...';
+      google.script.run
+        .withSuccessHandler(res => {
+          document.body.classList.remove('loading');
+          render(res || { headers: [], records: [] }, $('q').value);
+          msg.textContent = 'Loaded';
+        })
+        .withFailureHandler(err => {
+          document.body.classList.remove('loading');
+          msg.textContent = (err && err.message) ? err.message : 'Load failed';
+          console.error(err);
+        })
+        .getTable();
+    }
+
+    function save(row, status) {
+      document.body.classList.add('loading');
+      msg.textContent = 'Saving...';
+      google.script.run
+        .withSuccessHandler(() => {
+          document.body.classList.remove('loading');
+          msg.textContent = 'Saved';
+          setTimeout(load, 150);
+        })
+        .withFailureHandler(err => {
+          document.body.classList.remove('loading');
+          msg.textContent = (err && err.message) ? err.message : 'Save failed';
+          console.error(err);
+        })
+        .updateStatus({ row, status });
+    }
+
+    $('refreshBtn').addEventListener('click', load);
+    $('q').addEventListener('input', () => render({ headers, records }, $('q').value));
+    $('overdueOnly').addEventListener('change', () => render({ headers, records }, $('q').value));
+    $('viewSel').addEventListener('change', () => render({ headers, records }, $('q').value));
+
+    // initial
+    load();
+  </script>
+</body>
+</html>
