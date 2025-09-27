@@ -1,0 +1,14 @@
+# Google Apps Script / clasp
+.clasp.json
+
+# Node modules (if you ever add dependencies)
+node_modules/
+
+# VS Code / editor settings
+.vscode/
+*.code-workspace
+
+# Logs & temporary files
+*.log
+.DS_Store
+Thumbs.db
